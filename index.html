@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Click Battle</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --text: #f2f3f7; --muted: #9aa0b4;
+    --accent: #6c5ce7; --accent2: #a29bfe; --gold: #ffd166;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px;
+  }
+  .pill {
+    background: var(--card); border-radius: 999px; padding: 8px 14px;
+    font-size: 14px; font-weight: 600; display: flex; align-items: center;
+    gap: 6px; border: none; color: var(--text);
+  }
+  .pill .num { color: var(--accent2); font-variant-numeric: tabular-nums; }
+  main { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+  #bigbtn {
+    width: min(55vw, 240px); height: min(55vw, 240px); border-radius: 50%;
+    border: none; background: radial-gradient(circle at 35% 30%, var(--accent2), var(--accent));
+    color: white; font-size: 22px; font-weight: 800;
+    box-shadow: 0 10px 30px rgba(108,92,231,0.4); cursor: pointer;
+    user-select: none; transition: transform 0.06s ease;
+  }
+  #bigbtn:active { transform: scale(0.94); }
+  #banner {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: var(--muted); text-align: center; width: 90%;
+  }
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    display: none; align-items: center; justify-content: center; z-index: 20; padding: 20px;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 16px; padding: 22px;
+    width: 100%; max-width: 360px; max-height: 80vh; overflow-y: auto;
+  }
+  .modal h2 { margin: 0 0 12px; font-size: 18px; }
+  .modal input {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--muted);
+    background: transparent; color: var(--text); font-size: 15px; margin-bottom: 12px;
+  }
+  .modal .row {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 8px 10px; border-radius: 10px; font-size: 14px;
+  }
+  .modal .row.me { outline: 1px solid var(--accent2); }
+  .modal .row:nth-child(odd) { background: rgba(255,255,255,0.03); }
+  .modal .row .rank { color: var(--gold); font-weight: 700; width: 24px; }
+  .modal .row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal .row .ct { font-variant-numeric: tabular-nums; color: var(--accent2); font-weight: 600; }
+  .modal button.primary {
+    width: 100%; padding: 12px; border-radius: 10px; border: none;
+    background: var(--accent); color: white; font-weight: 700; font-size: 15px; margin-top: 4px;
+  }
+  .modal .close {
+    display: block; margin: 14px auto 0; background: none; border: none;
+    color: var(--muted); font-size: 14px;
+  }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 14px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="pill">👆 <span class="num" id="mycount">0</span></div>
+  <button class="pill" id="lb-open">🏆 Топ-100</button>
+</header>
+
+<main>
+  <button id="bigbtn">КЛИК</button>
+  <div id="banner"></div>
+</main>
+
+<div class="overlay" id="name-overlay">
+  <div class="modal">
+    <h2>Как тебя записать в таблицу?</h2>
+    <input id="name-input" placeholder="Твоё имя" maxlength="20">
+    <button class="primary" id="name-save">Начать</button>
+  </div>
+</div>
+
+<div class="overlay" id="lb-overlay">
+  <div class="modal">
+    <h2>🏆 Топ-100</h2>
+    <div id="lb-list"><div class="empty">Загрузка…</div></div>
+    <button class="close" id="lb-close">Закрыть</button>
+  </div>
+</div>
+
+<script>
+const DB = "https://death-bots-default-rtdb.firebaseio.com";
+
+let myId = localStorage.getItem('cb_id') || (Date.now().toString(36) + Math.random().toString(36).slice(2));
+localStorage.setItem('cb_id', myId);
+let myName = localStorage.getItem('cb_name') || '';
+let myCount = parseInt(localStorage.getItem('cb_count') || '0', 10);
+document.getElementById('mycount').textContent = myCount;
+
+let dirty = false, saveTimer = null;
+function scheduleSave() {
+  dirty = true;
+  if (saveTimer) return;
+  saveTimer = setTimeout(doSave, 600);
+}
+async function doSave() {
+  saveTimer = null;
+  if (!dirty) return;
+  dirty = false;
+  try {
+    await fetch(DB + "/scores/" + myId + ".json", {
+      method: "PUT",
+      body: JSON.stringify({ name: myName || "Гость", count: myCount })
+    });
+  } catch (e) { dirty = true; }
+}
+
+document.getElementById('bigbtn').addEventListener('click', () => {
+  myCount++;
+  document.getElementById('mycount').textContent = myCount;
+  localStorage.setItem('cb_count', myCount);
+  scheduleSave();
+});
+
+function openNameModal() { document.getElementById('name-overlay').classList.add('open'); }
+document.getElementById('name-save').addEventListener('click', () => {
+  const v = document.getElementById('name-input').value.trim();
+  myName = v || ('Гость' + Math.floor(Math.random() * 9999));
+  localStorage.setItem('cb_name', myName);
+  document.getElementById('name-overlay').classList.remove('open');
+  scheduleSave();
+});
+if (!myName) openNameModal();
+
+document.getElementById('lb-open').addEventListener('click', () => document.getElementById('lb-overlay').classList.add('open'));
+document.getElementById('lb-close').addEventListener('click', () => document.getElementById('lb-overlay').classList.remove('open'));
+
+async function refreshBoard() {
+  try {
+    const r = await fetch(DB + "/scores.json");
+    const data = await r.json() || {};
+    const ranked = Object.entries(data)
+      .map(([id, v]) => ({ id, name: v && v.name, count: (v && v.count) || 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 100);
+    const list = document.getElementById('lb-list');
+    if (!ranked.length) { list.innerHTML = '<div class="empty">Пока никто не кликал</div>'; return; }
+    list.innerHTML = ranked.map((p, i) =>
+      `<div class="row${p.id === myId ? ' me' : ''}"><span class="rank">${i + 1}</span><span class="nm">${String(p.name || 'Гость').replace(/</g,'')}${p.id === myId ? ' (ты)' : ''}</span><span class="ct">${p.count}</span></div>`
+    ).join('');
+  } catch (e) {
+    document.getElementById('lb-list').innerHTML = '<div class="empty">Не удалось загрузить</div>';
+  }
+}
+refreshBoard();
+setInterval(refreshBoard, 2500);
+</script>
+</body>
+</html>
