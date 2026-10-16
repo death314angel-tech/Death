@@ -166,7 +166,11 @@ async function refreshBoard() {
   }
 }
 refreshBoard();
-setInterval(refreshBoard, 10000);
+setInterval(() => {
+  if (document.getElementById('lb-overlay').classList.contains('open')) {
+    refreshBoard();
+  }
+}, 2000);
 </script>
 </body>
 </html>
